@@ -1,0 +1,5 @@
+data = {
+    'TrueEmail': '...',
+    'Email': '...',
+    'Pass': '...'
+}
