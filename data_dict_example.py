@@ -1,5 +1,4 @@
 data = {
-    'TrueEmail': '...',
     'Email': '...',
     'Pass': '...'
 }

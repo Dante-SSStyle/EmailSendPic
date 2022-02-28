@@ -1,40 +1,32 @@
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Depends, BackgroundTasks
+from fastapi.responses import JSONResponse
 import requests
 from classes.classes import Sender, Checker
-from data_dict import data
+from pydantic import EmailStr
+import random
 
 app = FastAPI(doc_url='/docs', redoc_url='/doc')
-send = Sender()
-check = Checker()
-
-
-async def check_email(email: str):
-    check.start()
-    true_email = data.get('TrueEmail')
-    if email != true_email:
-        raise HTTPException(status_code=403, detail='Доступ запрещён.')
-    return email
 
 
 def send_pic(email: str, rqst: str):
 
     r = requests.get(f'https://imsea.herokuapp.com/api/1?q={rqst}')
     nmb = 1
+    randlist = []
     if not (r.json()['results']):
-        send.send_error(email)
+        Sender.send_error(email)
         return None
-    for i in range(0, 9, 2):
+    while len(randlist) != 5:
+        randlist.append(random.randrange(0, (len(r.json()['results']))))
+    for i in randlist:
         pic = requests.get((r.json()['results'][i]))
         with open(f'images/picture{nmb}.jpg', 'wb') as file:
             file.write(pic.content)
         nmb += 1
-    send.send(email)
+    Sender.send(email)
 
 
-@app.post('/search')
-async def req(rqst: str, background: BackgroundTasks, email: str = Depends(check_email)):
-    if len(rqst) > 60:
-        raise HTTPException(status_code=400, detail='Слишком длинный запрос')
+@app.get('/search')
+async def req(background: BackgroundTasks, email: EmailStr, rqst: str = Depends(Checker.check_rqst)):
     background.add_task(send_pic, email, rqst)
-    response = '200 OK'
-    return response
+    return JSONResponse('Данные отправлены по email')

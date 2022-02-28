@@ -4,6 +4,7 @@ from email.mime.image import MIMEImage
 import smtplib
 from data_dict import data
 import os
+from fastapi import HTTPException
 
 msg = MIMEMultipart()
 server = smtplib.SMTP('smtp.gmail.com: 587')
@@ -12,25 +13,32 @@ password = data.get('Pass')
 msg['From'] = data.get('Email')
 
 
-class ApiException(Exception):
+class ApiException(HTTPException):
     pass
 
 
 class Checker:
-    @staticmethod
-    def start():
+
+    @classmethod
+    def start(cls):
         if not os.path.exists('data_dict.py'):
-            raise ApiException('Нужно создать .py файл с данными в словаре')
+            raise ApiException(status_code=403, detail='Нужно создать .py файл с данными в словаре')
 
         if not os.path.exists('images/'):
             os.mkdir('images/')
 
+    @classmethod
+    async def check_rqst(cls, rqst: str):
+        cls.start()
+        if len(rqst) > 60:
+            raise HTTPException(status_code=400, detail='Слишком длинный запрос')
+        return rqst
+
 
 class Sender:
 
-    @staticmethod
-    def send_error(email):
-
+    @classmethod
+    def send_error(cls, email: str):
         message = 'По запросу не найдено ни одного изображения.'
 
         msg['To'] = email
@@ -42,24 +50,18 @@ class Sender:
         server.sendmail(msg['From'], msg['To'], msg.as_string())
         server.quit()
 
-    @staticmethod
-    def send(email):
+    @classmethod
+    def send(cls, email: str):
         message = 'Картиночки завезли.'
+        names = ('images/picture1.jpg', 'images/picture2.jpg', 'images/picture3.jpg', 'images/picture4.jpg', 'images/picture5.jpg')
 
         msg['To'] = email
         msg['Subject'] = 'ImageSea'
 
         msg.attach(MIMEText(message, 'plain'))
-        with open('images/picture1.jpg', 'rb') as file:
-            msg.attach(MIMEImage(file.read()))
-        with open('images/picture2.jpg', 'rb') as file:
-            msg.attach(MIMEImage(file.read()))
-        with open('images/picture3.jpg', 'rb') as file:
-            msg.attach(MIMEImage(file.read()))
-        with open('images/picture4.jpg', 'rb') as file:
-            msg.attach(MIMEImage(file.read()))
-        with open('images/picture5.jpg', 'rb') as file:
-            msg.attach(MIMEImage(file.read()))
+        for i in names:
+            with open(i, 'rb') as file:
+                msg.attach(MIMEImage(file.read()))
         server.starttls()
         server.login(msg['From'], password)
         server.sendmail(msg['From'], msg['To'], msg.as_string())
